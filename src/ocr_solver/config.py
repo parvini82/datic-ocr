@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     # Datalab OCR API
     DATALAB_API_KEY: Optional[str] = None
-    DATALAB_API_URL: str = "https://api.datalab.to/v1/marker"
+    DATALAB_API_URL: str = "https://www.datalab.to/api/v1/convert"
     DATALAB_TIMEOUT: float = 60.0
 
     # OpenRouter LLM / Vision Provider Settings

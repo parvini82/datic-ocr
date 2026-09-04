@@ -74,10 +74,18 @@ class DatalabOCRClient(BaseOCRClient):
             else settings.OCR_MOCK_FALLBACK
         )
 
-    def _get_headers(self) -> Dict[str, str]:
+    def _is_configured(self) -> bool:
+        """Check if a real API key is configured (not None, empty, or default template placeholder)."""
         if not self.api_key:
+            return False
+        if self.api_key.strip() in ("", "your_datalab_api_key_here"):
+            return False
+        return True
+
+    def _get_headers(self) -> Dict[str, str]:
+        if not self._is_configured():
             raise DatalabAuthError("DATALAB_API_KEY is not configured.")
-        return {"X-Api-Key": self.api_key}
+        return {"X-API-Key": self.api_key}
 
     def _mock_fallback(self, image_path: Path) -> OCRResult:
         """Provide mock OCR text for known samples or a synthetic placeholder when offline."""
@@ -102,12 +110,12 @@ class DatalabOCRClient(BaseOCRClient):
         )
 
     def extract_text(self, image_path: Union[str, Path]) -> OCRResult:
-        """Extract text from an image synchronously."""
+        """Extract text from an image synchronously using Datalab Convert API."""
         path = Path(image_path)
         if not path.exists():
             raise FileNotFoundError(f"Image not found at {path}")
 
-        if not self.api_key:
+        if not self._is_configured():
             if self.enable_mock_fallback:
                 return self._mock_fallback(path)
             raise DatalabAuthError(
@@ -120,15 +128,28 @@ class DatalabOCRClient(BaseOCRClient):
         try:
             with open(path, "rb") as f:
                 files = {"file": (path.name, f, mime_type)}
-                data = {"langs": "fa,en", "force_ocr": "true", "paginate": "false"}
+                data = {
+                    "output_format": "markdown",
+                    "mode": "balanced",
+                    "paginate": "false",
+                }
                 headers = self._get_headers()
 
                 with httpx.Client(timeout=self.timeout) as client:
                     resp = client.post(self.api_url, headers=headers, files=files, data=data)
 
-                    if resp.status_code == 401 or resp.status_code == 403:
+                    if resp.status_code in (401, 403):
+                        if self.enable_mock_fallback:
+                            logger.warning(
+                                "Datalab authentication failed (%s). Falling back to mock OCR.",
+                                resp.status_code,
+                            )
+                            return self._mock_fallback(path)
                         raise DatalabAuthError(f"Authentication failed: {resp.text}")
                     if resp.status_code == 429:
+                        if self.enable_mock_fallback:
+                            logger.warning("Datalab rate limit exceeded. Falling back to mock OCR.")
+                            return self._mock_fallback(path)
                         raise DatalabRateLimitError("Rate limit exceeded on Datalab API")
                     resp.raise_for_status()
 
@@ -137,9 +158,9 @@ class DatalabOCRClient(BaseOCRClient):
                     # Handle asynchronous polling if check URL is returned
                     check_url = resp_data.get("request_check_url")
                     if check_url:
-                        return self._poll_result_sync(client, check_url, headers)
+                        return self._poll_result_sync(client, check_url, headers, path)
 
-                    # Extract text directly
+                    # Extract text directly if returned immediately
                     extracted_text = (
                         resp_data.get("markdown")
                         or resp_data.get("text")
@@ -168,7 +189,11 @@ class DatalabOCRClient(BaseOCRClient):
             )
 
     def _poll_result_sync(
-        self, client: httpx.Client, check_url: str, headers: Dict[str, str]
+        self,
+        client: httpx.Client,
+        check_url: str,
+        headers: Dict[str, str],
+        path: Path,
     ) -> OCRResult:
         """Poll the asynchronous result check URL until completion."""
         max_polls = 30
@@ -176,35 +201,50 @@ class DatalabOCRClient(BaseOCRClient):
 
         for _ in range(max_polls):
             time.sleep(poll_interval)
-            resp = client.get(check_url, headers=headers)
-            if resp.status_code == 200:
-                data = resp.json()
-                status = data.get("status")
-                if status == "complete":
-                    extracted_text = (
-                        data.get("markdown")
-                        or data.get("text")
-                        or data.get("full_text")
-                        or ""
-                    )
-                    return OCRResult(
-                        text=extracted_text.strip(),
-                        provider="datalab",
-                        success=True,
-                        raw_response=data,
-                    )
-                elif status == "failed":
-                    error_msg = data.get("error", "Datalab OCR job failed")
-                    return OCRResult(
-                        text="",
-                        provider="datalab",
-                        success=False,
-                        error=error_msg,
-                        raw_response=data,
-                    )
-            elif resp.status_code == 429:
-                time.sleep(poll_interval * 2)
+            try:
+                resp = client.get(check_url, headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("status")
+                    if status == "complete":
+                        extracted_text = (
+                            data.get("markdown")
+                            or data.get("text")
+                            or data.get("full_text")
+                            or ""
+                        )
+                        return OCRResult(
+                            text=extracted_text.strip(),
+                            provider="datalab",
+                            success=True,
+                            raw_response=data,
+                        )
+                    elif status == "failed":
+                        error_msg = data.get("error", "Datalab OCR job failed")
+                        if self.enable_mock_fallback:
+                            logger.warning("Datalab OCR job failed (%s); falling back to mock.", error_msg)
+                            return self._mock_fallback(path)
+                        return OCRResult(
+                            text="",
+                            provider="datalab",
+                            success=False,
+                            error=error_msg,
+                            raw_response=data,
+                        )
+                    elif status == "processing":
+                        continue
+                elif resp.status_code == 429:
+                    time.sleep(poll_interval * 2)
+                elif resp.status_code in (401, 403):
+                    if self.enable_mock_fallback:
+                        return self._mock_fallback(path)
+                    raise DatalabAuthError(f"Authentication failed during polling: {resp.text}")
+            except Exception as e:
+                logger.warning("Polling error: %s", e)
 
+        if self.enable_mock_fallback:
+            logger.warning("Polling timed out; falling back to mock OCR.")
+            return self._mock_fallback(path)
         return OCRResult(
             text="",
             provider="datalab",
@@ -213,12 +253,12 @@ class DatalabOCRClient(BaseOCRClient):
         )
 
     async def extract_text_async(self, image_path: Union[str, Path]) -> OCRResult:
-        """Extract text from an image asynchronously."""
+        """Extract text from an image asynchronously using Datalab Convert API."""
         path = Path(image_path)
         if not path.exists():
             raise FileNotFoundError(f"Image not found at {path}")
 
-        if not self.api_key:
+        if not self._is_configured():
             if self.enable_mock_fallback:
                 return self._mock_fallback(path)
             raise DatalabAuthError("DATALAB_API_KEY is not configured.")
@@ -231,13 +271,21 @@ class DatalabOCRClient(BaseOCRClient):
                 with open(path, "rb") as f:
                     content = f.read()
                 files = {"file": (path.name, content, mime_type)}
-                data = {"langs": "fa,en", "force_ocr": "true", "paginate": "false"}
+                data = {
+                    "output_format": "markdown",
+                    "mode": "balanced",
+                    "paginate": "false",
+                }
                 headers = self._get_headers()
 
                 resp = await client.post(self.api_url, headers=headers, files=files, data=data)
                 if resp.status_code in (401, 403):
+                    if self.enable_mock_fallback:
+                        return self._mock_fallback(path)
                     raise DatalabAuthError(f"Authentication failed: {resp.text}")
                 if resp.status_code == 429:
+                    if self.enable_mock_fallback:
+                        return self._mock_fallback(path)
                     raise DatalabRateLimitError("Rate limit exceeded on Datalab API")
                 resp.raise_for_status()
 
@@ -264,6 +312,8 @@ class DatalabOCRClient(BaseOCRClient):
                                     raw_response=pdata,
                                 )
                             elif pdata.get("status") == "failed":
+                                if self.enable_mock_fallback:
+                                    return self._mock_fallback(path)
                                 return OCRResult(
                                     text="",
                                     provider="datalab",

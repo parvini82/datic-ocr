@@ -34,7 +34,7 @@ flowchart TD
 
 ## Deliverables & Features
 
-- **Phase 1 (Base Setup & OCR Client)**: Clean, typed integration with the **Datalab OCR API** (`https://api.datalab.to/v1/marker`), with timeout controls, exponential backoff, rate limit handling, and offline mock fallback for local tests.
+- **Phase 1 (Base Setup & OCR Client)**: Clean, typed integration with the **Datalab OCR API** (`https://www.datalab.to/api/v1/convert`), with timeout controls, exponential backoff, rate limit handling, and offline mock fallback for local tests.
 - **Phase 2 (Core Retry & Refinement Loop)**: Multi-step agent loop connecting vision inspection with mathematical reasoning. Detects option mismatches, visually re-examines the scan crop, produces minimal corrections, and repeats up to a defined retry cap.
 - **Phase 3 (Synthetic Persian OCR Noise Injection)**: Dedicated perturbation engine simulating realistic Persian OCR degradation (lookalike letters $\text{پ/ب/ت/ث}$, $\text{ک/گ}$, confused Persian digits $\text{۲/۳}$, $\text{۴/۶}$, $\text{۰/۵}$, and math notation artifacts).
 - **Phase 4 (Strict Output Formatting)**: Enforces the exact JSON output format per question block:
@@ -72,7 +72,7 @@ Key configuration options in `.env`:
 ```env
 # Datalab OCR API credentials
 DATALAB_API_KEY=your_datalab_api_key_here
-DATALAB_API_URL=https://api.datalab.to/v1/marker
+DATALAB_API_URL=https://www.datalab.to/api/v1/convert
 
 # OpenRouter LLM / Vision Provider credentials
 OPENROUTER_API_KEY=your_openrouter_api_key_here
@@ -124,7 +124,7 @@ pytest -v
 ## Engineering Write-Up: Design Decisions
 
 ### 1. Choice of OCR Provider: Datalab OCR
-The pipeline integrates the **Datalab OCR API** (`https://api.datalab.to/v1/marker`). Datalab provides high-accuracy LaTeX and Persian document parsing from complex layouts. The client handles file streaming, asynchronous polling (`request_check_url`), authentication exceptions (`DatalabAuthError`), and rate limits (`DatalabRateLimitError`). For offline testing and isolated CI environments, a graceful mock fallback (`enable_mock_fallback=True`) provides baseline OCR texts for the sample suite.
+The pipeline integrates the **Datalab OCR API** (`https://www.datalab.to/api/v1/convert`). Datalab provides high-accuracy LaTeX and Persian document parsing from complex layouts. The client handles file streaming, asynchronous polling (`request_check_url`), authentication exceptions (`DatalabAuthError`), and rate limits (`DatalabRateLimitError`). For offline testing and isolated CI environments, a graceful mock fallback (`enable_mock_fallback=True`) provides baseline OCR texts for the sample suite.
 
 ### 2. Retry Cap Justification (`MAX_RETRIES = 3`)
 We set the default retry cap to **3 iterations** (1 initial solve + up to 3 visual refinement attempts, yielding a maximum of 4 total solve calls). 

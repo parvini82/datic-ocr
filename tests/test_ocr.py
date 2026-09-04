@@ -79,3 +79,50 @@ def test_datalab_rate_limit_error(mock_post, tmp_path: Path):
     client = DatalabOCRClient(api_key="valid_test_key", enable_mock_fallback=False)
     with pytest.raises(DatalabRateLimitError):
         client.extract_text(sample_file)
+
+
+@patch("httpx.Client.get")
+@patch("httpx.Client.post")
+def test_datalab_polling_flow(mock_post, mock_get, tmp_path: Path):
+    """Test asynchronous check_url polling flow matching Datalab Convert API."""
+    sample_file = tmp_path / "test.png"
+    sample_file.write_bytes(b"dummy image data")
+
+    # Initial POST returns request_check_url
+    mock_post_resp = MagicMock()
+    mock_post_resp.status_code = 200
+    mock_post_resp.json.return_value = {
+        "success": True,
+        "request_id": "req_123",
+        "request_check_url": "https://www.datalab.to/api/v1/convert/req_123",
+    }
+    mock_post.return_value = mock_post_resp
+
+    # First GET returns processing, second returns complete
+    mock_get_resp1 = MagicMock()
+    mock_get_resp1.status_code = 200
+    mock_get_resp1.json.return_value = {"status": "processing"}
+
+    mock_get_resp2 = MagicMock()
+    mock_get_resp2.status_code = 200
+    mock_get_resp2.json.return_value = {
+        "status": "complete",
+        "success": True,
+        "markdown": "Converted markdown content",
+    }
+    mock_get.side_effect = [mock_get_resp1, mock_get_resp2]
+
+    client = DatalabOCRClient(api_key="valid_key", enable_mock_fallback=False)
+    result = client.extract_text(sample_file)
+
+    assert result.success is True
+    assert result.text == "Converted markdown content"
+    assert result.provider == "datalab"
+
+
+def test_datalab_header_format():
+    """Verify X-API-Key header formatting."""
+    client = DatalabOCRClient(api_key="my_secret_key")
+    headers = client._get_headers()
+    assert headers == {"X-API-Key": "my_secret_key"}
+
