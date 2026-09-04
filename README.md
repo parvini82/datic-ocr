@@ -35,7 +35,7 @@ flowchart TD
 ## Deliverables & Core Features
 
 ### Key Deliverables
-- **Engineering Write-Up (PDF)**: [`writeup.pdf`](writeup.pdf) (also available as [`write-up.pdf`](write-up.pdf)) — Formal documentation detailing architectural decisions, the mathematical justification for the retry cap (`MAX_RETRIES = 3`), error recovery analysis, and fallback resolution strategies for ambiguous or unsolvable question crops.
+- **Engineering Write-Up (PDF)**: [`writeup.pdf`](writeup.pdf) — Formal documentation detailing architectural decisions, the mathematical justification for the retry cap (`MAX_RETRIES = 3`), error recovery analysis, and fallback resolution strategies for ambiguous or unsolvable question crops.
 - **Structured Sample Results (JSON)**: [`sample_outputs.json`](sample_outputs.json) — Generated results array meeting the exact Phase 4 specification (`answer`, `question_text`, `changed`, `original_ocr_text`) across all sample questions.
 - **Interactive RTL HTML Report**: [`sample_outputs.html`](sample_outputs.html) — Beautiful card-based RTL report supporting Persian typography (`Vazirmatn`/`Tahoma`) and MathJax LaTeX equation rendering without character scrambling.
 - **Deliverables Export Script**: [`scripts/export_deliverables.py`](scripts/export_deliverables.py) — Automated batch script to evaluate all sample images and output both `sample_outputs.json` and `sample_outputs.html`.
