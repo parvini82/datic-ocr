@@ -95,6 +95,15 @@ def get_available_samples():
     return []
 
 
+def safe_update_status(status_container, **kwargs):
+    """Safely update st.status container if available."""
+    if status_container is not None and hasattr(status_container, "update"):
+        try:
+            status_container.update(**kwargs)
+        except Exception:
+            pass
+
+
 def run_solver_with_live_timeline(
     image_path: Path,
     inject_noise: bool = False,
@@ -133,9 +142,10 @@ def run_solver_with_live_timeline(
             )
             with st.expander(f"⚠️ Perturbations Injected ({len(perts)} mutations)", expanded=True):
                 for p in perts:
+                    cat_name = p.category.value if hasattr(p.category, 'value') else str(p.category)
                     st.markdown(
                         f"- Mutated **`{p.original_char}`** $\\to$ **`{p.perturbed_char}`** "
-                        f"*(Category: `{p.category}`)* at index {p.position}"
+                        f"*(Category: `{cat_name}`)* at index `{p.index}`"
                     )
                 st.markdown("**Corrupted OCR Text fed to Agent:**")
                 st.code(corrupted_text, language="markdown")
@@ -173,7 +183,8 @@ def run_solver_with_live_timeline(
                 f"✅ **Clean Match on Attempt 1!** Computed value matches **Option {attempt_result.matched_option}** "
                 f"(Confidence: {attempt_result.match_confidence:.0%})"
             )
-            status.update(
+            safe_update_status(
+                status,
                 label=f"✅ Solved successfully on Attempt 1 (Answer: Option {attempt_result.matched_option})",
                 state="complete",
                 expanded=False,
@@ -249,7 +260,8 @@ def run_solver_with_live_timeline(
                     f"🎉 **Refinement Successful on Attempt {attempt_num}!** "
                     f"Matched **Option {attempt_result.matched_option}** (Confidence: {attempt_result.match_confidence:.0%})"
                 )
-                status.update(
+                safe_update_status(
+                    status,
                     label=f"✅ Resolved on Attempt {attempt_num} after visual refinement (Answer: Option {attempt_result.matched_option})",
                     state="complete",
                     expanded=False,
@@ -283,7 +295,8 @@ def run_solver_with_live_timeline(
             st.markdown(f"**Selected Best-Guess Option:** `{best_guess}`")
             st.markdown(f"**Justification:** {fallback_reason}")
 
-        status.update(
+        safe_update_status(
+            status,
             label=f"⚠️ Concluded with Best-Guess Option {best_guess} (Retry cap reached)",
             state="complete",
             expanded=False,
