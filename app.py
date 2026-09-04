@@ -1,13 +1,13 @@
 """
 Streamlit Frontend for OCR-Aware Question Solving Agent.
-Visualizes the step-by-step retry, option matching, and visual OCR refinement loop.
+Visualizes the step-by-step retry, option matching, and visual OCR refinement loop with high UX transparency.
 """
 
 import json
 import logging
 from pathlib import Path
 import tempfile
-from typing import Optional
+from typing import Optional, Tuple
 
 import streamlit as st
 from PIL import Image
@@ -17,7 +17,7 @@ from ocr_solver.agent.options import clean_text, extract_options_from_text
 from ocr_solver.config import settings
 from ocr_solver.formatter import format_single_result
 from ocr_solver.models import DetailedSolverResult, QuestionOutput, SolveAttempt
-from ocr_solver.noise.persian_noise import PersianOCRNoiseInjector
+from ocr_solver.noise.persian_noise import NoisePerturbation, PersianOCRNoiseInjector
 from ocr_solver.ocr.datalab import DatalabOCRClient
 
 # Configure root logger
@@ -32,55 +32,109 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom Styling
+# Custom High-Quality Styling
 st.markdown(
     """
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
     .main-title {
-        font-size: 2.2rem;
-        font-weight: 700;
+        font-size: 2.1rem;
+        font-weight: 750;
         margin-bottom: 0.2rem;
-        color: #1E293B;
+        color: #0F172A;
+        letter-spacing: -0.02em;
     }
     .sub-title {
-        font-size: 1.05rem;
-        color: #64748B;
-        margin-bottom: 1.5rem;
+        font-size: 1rem;
+        color: #475569;
+        margin-bottom: 1.25rem;
+        line-height: 1.5;
     }
-    .metric-card {
+    
+    .answer-banner {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+        color: white;
+        padding: 18px 24px;
+        border-radius: 12px;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    }
+    .answer-banner-fallback {
+        background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+        color: white;
+        padding: 18px 24px;
+        border-radius: 12px;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    }
+    .answer-label {
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+        opacity: 0.9;
+    }
+    .answer-value {
+        font-size: 2rem;
+        font-weight: 800;
+        margin-top: 2px;
+    }
+    
+    .content-box {
         background-color: #F8FAFC;
         border: 1px solid #E2E8F0;
-        border-radius: 8px;
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-bottom: 16px;
+        direction: rtl;
+        text-align: right;
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: #1E293B;
+    }
+    
+    .noisy-box {
+        background-color: #FFFBEB;
+        border: 1.5px dashed #F59E0B;
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-top: 14px;
+        margin-bottom: 16px;
+        direction: rtl;
+        text-align: right;
+        font-size: 1.02rem;
+        line-height: 1.8;
+        color: #78350F;
+    }
+    
+    .reasoning-box {
+        background-color: #F1F5F9;
+        border-left: 4px solid #3B82F6;
+        border-radius: 0 8px 8px 0;
         padding: 12px 16px;
-        margin-bottom: 10px;
+        margin: 10px 0;
+        color: #1E293B;
+        font-size: 0.95rem;
+        line-height: 1.6;
     }
-    .badge-success {
-        background-color: #DCFCE7;
-        color: #166534;
-        padding: 4px 8px;
-        border-radius: 6px;
+    
+    .pill {
+        display: inline-block;
+        padding: 3px 9px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
         font-weight: 600;
-        font-size: 0.85rem;
+        margin-right: 6px;
     }
-    .badge-warning {
-        background-color: #FEF3C7;
-        color: #92400E;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }
-    .badge-info {
-        background-color: #E0F2FE;
-        color: #0369A1;
-        padding: 4px 8px;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.85rem;
-    }
-    .stCodeBlock {
-        border-radius: 8px;
-    }
+    .pill-green { background-color: #DCFCE7; color: #15803D; }
+    .pill-amber { background-color: #FEF3C7; color: #B45309; }
+    .pill-blue { background-color: #DBEAFE; color: #1D4ED8; }
+    .pill-purple { background-color: #F3E8FF; color: #7E22CE; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -104,57 +158,64 @@ def safe_update_status(status_container, **kwargs):
             pass
 
 
-def run_solver_with_live_timeline(
+def execute_stepwise_solving(
     image_path: Path,
     inject_noise: bool = False,
     noise_rate: float = 0.08,
     max_perturbations: int = 3,
     max_retries: int = 3,
-) -> DetailedSolverResult:
+) -> Tuple[DetailedSolverResult, Optional[str], list[NoisePerturbation]]:
     """
-    Executes the OCR-aware solver pipeline step-by-step while rendering
-    live progress and thought processes into st.status and expandable containers.
+    Executes the OCR-aware solver step-by-step, capturing full reasoning logs,
+    and rendering each step live into Streamlit status & expandable containers.
     """
     ocr_client = DatalabOCRClient()
     noise_injector = PersianOCRNoiseInjector()
     agent = OCRAwareSolverAgent(max_retries=max_retries)
 
-    with st.status("🧠 Agent is analyzing and solving the question...", expanded=True) as status:
+    corrupted_ocr_text: Optional[str] = None
+    applied_perturbations: list[NoisePerturbation] = []
+
+    with st.status("🧠 Agent is solving with OCR-Aware Refinement...", expanded=True) as status:
         # ---------------------------------------------------------
-        # Step 1: Extract Initial OCR
+        # Step 1: Initial OCR Extraction
         # ---------------------------------------------------------
-        st.write("### 📄 Step 1: Extracting Initial OCR")
+        st.write("#### 📄 Step 1: Initial OCR Text Extraction")
         ocr_res = ocr_client.extract_text(image_path)
         initial_text = ocr_res.text
         original_ocr = initial_text
 
-        with st.expander("👁️ View Initial Extracted OCR Text", expanded=False):
-            st.code(initial_text, language="markdown")
+        with st.expander("🔍 View Initial Extracted OCR Text", expanded=False):
+            st.markdown(f'<div class="content-box">{initial_text}</div>', unsafe_allow_html=True)
             st.caption(f"Provider: **{ocr_res.provider}** | Status: **{'Success' if ocr_res.success else 'Failed'}**")
 
-        # Step 1b: Optional Noise Injection for Stress-Testing
+        # Step 1b: Synthetic Noise Injection (if requested)
         if inject_noise:
-            st.write("### ⚡ Step 1b: Synthetic Noise Injection (Stress-Testing)")
+            st.write("#### ⚡ Step 1b: Synthetic Persian OCR Noise Perturbation")
             corrupted_text, perts = noise_injector.perturb_text(
                 initial_text,
                 char_rate=noise_rate,
                 max_perturbations=max_perturbations,
             )
-            with st.expander(f"⚠️ Perturbations Injected ({len(perts)} mutations)", expanded=True):
+            corrupted_ocr_text = corrupted_text
+            applied_perturbations = perts
+
+            with st.expander(f"⚠️ Perturbations Applied ({len(perts)} character mutations)", expanded=True):
                 for p in perts:
-                    cat_name = p.category.value if hasattr(p.category, 'value') else str(p.category)
+                    cat_name = p.category.value if hasattr(p.category, "value") else str(p.category)
                     st.markdown(
-                        f"- Mutated **`{p.original_char}`** $\\to$ **`{p.perturbed_char}`** "
-                        f"*(Category: `{cat_name}`)* at index `{p.index}`"
+                        f"- Mutated character **`{p.original_char}`** $\\to$ **`{p.perturbed_char}`** "
+                        f"*(Category: `{cat_name}`)* at offset `{p.index}`"
                     )
-                st.markdown("**Corrupted OCR Text fed to Agent:**")
-                st.code(corrupted_text, language="markdown")
+                st.markdown("**Scrambled OCR Text fed to Agent:**")
+                st.markdown(f'<div class="noisy-box">{corrupted_text}</div>', unsafe_allow_html=True)
+
             initial_text = corrupted_text
 
         # ---------------------------------------------------------
-        # Step 2: Initial Solve Attempt
+        # Step 2: Attempt 1 (Initial LLM Solve)
         # ---------------------------------------------------------
-        st.write("### 📐 Step 2: Initial LLM Solve Attempt")
+        st.write("#### 📐 Step 2: Initial LLM Solving Attempt")
         current_text = initial_text
         attempts: list[SolveAttempt] = []
         is_changed = False
@@ -169,19 +230,29 @@ def run_solver_with_live_timeline(
         )
         attempts.append(attempt_result)
 
-        with st.expander(f"📝 Attempt {attempt_num} Reasoning & Computation", expanded=True):
-            st.markdown(f"**Parsed Options:** `{options}`")
-            st.markdown(f"**Mathematical Reasoning:**\n\n{attempt_result.reasoning}")
-            st.markdown(f"**Computed Value:** `{attempt_result.computed_value}`")
+        with st.expander(f"📝 Attempt 1: Model Reasoning & Guessed Output", expanded=True):
+            st.markdown(f"**Available Candidate Options:**")
+            opt_pills = " ".join([f"<span class='pill pill-blue'>Option {k}: {v}</span>" for k, v in options.items()])
+            st.markdown(opt_pills, unsafe_allow_html=True)
+
+            st.markdown("**LLM Mathematical Reasoning:**")
+            st.markdown(f'<div class="reasoning-box">{attempt_result.reasoning}</div>', unsafe_allow_html=True)
+
+            c1, c2 = st.columns(2)
+            with c1:
+                st.metric("Derived Computed Value", str(attempt_result.computed_value or "None"))
+            with c2:
+                guess_label = f"Option {attempt_result.matched_option}" if attempt_result.matched_option else "❌ No Match (Discrepancy)"
+                st.metric("Initial Match Verdict", guess_label)
 
         # ---------------------------------------------------------
         # Step 3: Option Matching Verification
         # ---------------------------------------------------------
-        st.write("### 🎯 Step 3: Option Matching Verification")
+        st.write("#### 🎯 Step 3: Option Matching Verification")
         if attempt_result.matched_option:
             st.success(
-                f"✅ **Clean Match on Attempt 1!** Computed value matches **Option {attempt_result.matched_option}** "
-                f"(Confidence: {attempt_result.match_confidence:.0%})"
+                f"✅ **Immediate Match on Attempt 1!** Computed value `{attempt_result.computed_value}` cleanly matches "
+                f"**Option {attempt_result.matched_option}** with confidence {attempt_result.match_confidence:.0%}."
             )
             safe_update_status(
                 status,
@@ -189,31 +260,36 @@ def run_solver_with_live_timeline(
                 state="complete",
                 expanded=False,
             )
-            return DetailedSolverResult(
-                output=QuestionOutput(
-                    answer=attempt_result.matched_option,
-                    question_text=current_text,
-                    changed=False,
-                    original_ocr_text=original_ocr,
+            return (
+                DetailedSolverResult(
+                    output=QuestionOutput(
+                        answer=attempt_result.matched_option,
+                        question_text=current_text,
+                        changed=False,
+                        original_ocr_text=original_ocr,
+                    ),
+                    is_resolved=True,
+                    total_attempts=1,
+                    attempts=attempts,
+                    image_path=str(image_path),
                 ),
-                is_resolved=True,
-                total_attempts=1,
-                attempts=attempts,
-                image_path=str(image_path),
+                corrupted_ocr_text,
+                applied_perturbations,
             )
 
         st.warning(
-            f"❌ **Option Mismatch Detected!** Derived value `{attempt_result.computed_value}` "
-            f"did not match any candidate option in `{list(options.keys())}`. Transcription error suspected."
+            f"❌ **Option Mismatch Detected!** Derived computed value `{attempt_result.computed_value}` "
+            f"does not match any of the candidate options `{list(options.keys())}`. "
+            f"The agent treats this discrepancy as evidence of transcription errors and initiates visual refinement."
         )
 
         # ---------------------------------------------------------
-        # Step 4: Visual OCR Refinement and Retry Loop
+        # Step 4: Visual OCR Refinement & Retry Loop
         # ---------------------------------------------------------
         while attempt_num <= agent.max_retries:
-            st.write(f"### 🔄 Step 4: Visual OCR Refinement & Retry (Iteration {attempt_num})")
-            
-            # Step 4a: Visual Inspection
+            st.write(f"#### 🔄 Step 4: Visual OCR Refinement & Re-solving (Iteration {attempt_num})")
+
+            # 4a: Visual re-inspection of scan crop
             correction_res = agent._refine_ocr_with_vision(
                 image_path=image_path,
                 current_text=current_text,
@@ -223,24 +299,30 @@ def run_solver_with_live_timeline(
             notes = correction_res.get("correction_notes", "")
             errors = correction_res.get("identified_errors", [])
 
-            with st.expander(f"🔍 Visual Inspection & Error Analysis (Retry {attempt_num})", expanded=True):
-                st.markdown(f"**Identified Errors:** {errors if errors else 'Minor transcription discrepancy'}")
-                st.markdown(f"**Correction Notes:** {notes}")
-                
-                # Check text diff
+            with st.expander(f"🔍 Visual Inspection & Error Diagnosis (Attempt {attempt_num})", expanded=True):
+                st.markdown("**Identified Transcription Discrepancies:**")
+                if errors:
+                    for err in errors:
+                        st.markdown(f"- ⚠️ **{err}**")
+                else:
+                    st.markdown("- *Minor structural or character transcription mismatch diagnosed.*")
+
+                st.markdown(f"**Vision Model Diagnostic Notes:** {notes}")
+
+                # Check if text was corrected
                 if clean_text(corrected_text) != clean_text(current_text):
                     is_changed = True
                     current_text = corrected_text
                     options = extract_options_from_text(current_text)
-                    st.info("💡 **Question text was corrected based on image re-examination:**")
-                    st.code(current_text, language="markdown")
+                    st.info("💡 **Question text was corrected based on image crop re-inspection:**")
+                    st.markdown(f'<div class="content-box">{current_text}</div>', unsafe_allow_html=True)
                 else:
-                    st.info("ℹ️ Question text preserved after visual re-examination.")
+                    st.caption("ℹ️ OCR text was confirmed without textual changes.")
 
             attempt_num += 1
 
-            # Step 4b: Re-solve with corrected text
-            st.write(f"### 📐 Re-Solving with Corrected Input (Attempt {attempt_num})")
+            # 4b: Re-solve with corrected text
+            st.write(f"#### 📐 Re-solving Question with Corrected OCR (Attempt {attempt_num})")
             attempt_result = agent._execute_solve_attempt(
                 image_path=image_path,
                 question_text=current_text,
@@ -250,15 +332,27 @@ def run_solver_with_live_timeline(
             )
             attempts.append(attempt_result)
 
-            with st.expander(f"📝 Attempt {attempt_num} Reasoning", expanded=True):
-                st.markdown(f"**Reasoning:**\n\n{attempt_result.reasoning}")
-                st.markdown(f"**Computed Value:** `{attempt_result.computed_value}`")
+            with st.expander(f"📝 Attempt {attempt_num}: Refined Reasoning & Output", expanded=True):
+                st.markdown("**Updated Candidate Options:**")
+                opt_pills = " ".join([f"<span class='pill pill-purple'>Option {k}: {v}</span>" for k, v in options.items()])
+                st.markdown(opt_pills, unsafe_allow_html=True)
+
+                st.markdown("**Mathematical Reasoning with Corrected Formulation:**")
+                st.markdown(f'<div class="reasoning-box">{attempt_result.reasoning}</div>', unsafe_allow_html=True)
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.metric("New Computed Value", str(attempt_result.computed_value or "None"))
+                with c2:
+                    new_verdict = f"Option {attempt_result.matched_option}" if attempt_result.matched_option else "❌ Still Mismatched"
+                    st.metric("Option Match Result", new_verdict)
 
             # Check matching
             if attempt_result.matched_option:
                 st.success(
-                    f"🎉 **Refinement Successful on Attempt {attempt_num}!** "
-                    f"Matched **Option {attempt_result.matched_option}** (Confidence: {attempt_result.match_confidence:.0%})"
+                    f"🎉 **Refinement Succeeded on Attempt {attempt_num}!** "
+                    f"Computed value `{attempt_result.computed_value}` matches **Option {attempt_result.matched_option}** "
+                    f"(Confidence: {attempt_result.match_confidence:.0%})."
                 )
                 safe_update_status(
                     status,
@@ -266,24 +360,28 @@ def run_solver_with_live_timeline(
                     state="complete",
                     expanded=False,
                 )
-                return DetailedSolverResult(
-                    output=QuestionOutput(
-                        answer=attempt_result.matched_option,
-                        question_text=current_text,
-                        changed=is_changed,
-                        original_ocr_text=original_ocr,
+                return (
+                    DetailedSolverResult(
+                        output=QuestionOutput(
+                            answer=attempt_result.matched_option,
+                            question_text=current_text,
+                            changed=is_changed,
+                            original_ocr_text=original_ocr,
+                        ),
+                        is_resolved=True,
+                        total_attempts=attempt_num,
+                        attempts=attempts,
+                        image_path=str(image_path),
                     ),
-                    is_resolved=True,
-                    total_attempts=attempt_num,
-                    attempts=attempts,
-                    image_path=str(image_path),
+                    corrupted_ocr_text,
+                    applied_perturbations,
                 )
 
         # ---------------------------------------------------------
         # Fallback if retry cap reached
         # ---------------------------------------------------------
-        st.write("### ⚖️ Step 5: Bounded Fallback Resolution")
-        st.warning(f"Retry cap of {agent.max_retries} reached. Engaging best-guess heuristic fallback.")
+        st.write("#### ⚖️ Step 5: Bounded Fallback Resolution")
+        st.warning(f"Retry cap of {agent.max_retries} reached. Engaging best-guess heuristic resolution.")
         best_guess, fallback_reason = agent._resolve_fallback(
             image_path=image_path,
             question_text=current_text,
@@ -292,8 +390,8 @@ def run_solver_with_live_timeline(
         )
 
         with st.expander("🛡️ Fallback Heuristic Justification", expanded=True):
-            st.markdown(f"**Selected Best-Guess Option:** `{best_guess}`")
-            st.markdown(f"**Justification:** {fallback_reason}")
+            st.markdown(f"**Selected Best-Guess Candidate:** `Option {best_guess}`")
+            st.markdown(f"**Heuristic Justification:** {fallback_reason}")
 
         safe_update_status(
             status,
@@ -302,18 +400,22 @@ def run_solver_with_live_timeline(
             expanded=False,
         )
 
-        return DetailedSolverResult(
-            output=QuestionOutput(
-                answer=best_guess,
-                question_text=current_text,
-                changed=is_changed,
-                original_ocr_text=original_ocr,
+        return (
+            DetailedSolverResult(
+                output=QuestionOutput(
+                    answer=best_guess,
+                    question_text=current_text,
+                    changed=is_changed,
+                    original_ocr_text=original_ocr,
+                ),
+                is_resolved=False,
+                total_attempts=len(attempts),
+                attempts=attempts,
+                image_path=str(image_path),
+                unresolved_reason=fallback_reason,
             ),
-            is_resolved=False,
-            total_attempts=len(attempts),
-            attempts=attempts,
-            image_path=str(image_path),
-            unresolved_reason=fallback_reason,
+            corrupted_ocr_text,
+            applied_perturbations,
         )
 
 
@@ -321,14 +423,14 @@ def main():
     # Header
     st.markdown('<div class="main-title">🔍 OCR-Aware Question Solving Agent</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="sub-title">Visualizing the self-correcting OCR refinement and option matching workflow for Persian STEM exams.</div>',
+        '<div class="sub-title">Interactive visualizer for self-correcting OCR refinement, mathematical reasoning, and option matching.</div>',
         unsafe_allow_html=True,
     )
 
     # Sidebar Controls
     with st.sidebar:
         st.header("⚙️ Configuration & Input")
-        
+
         input_source = st.radio(
             "Select Question Image Source:",
             ["Sample Questions", "Upload Custom Image"],
@@ -353,7 +455,6 @@ def main():
                 help="Upload a cropped image of a single multiple-choice question.",
             )
             if uploaded_file is not None:
-                # Save uploaded file to a temporary file
                 suffix = Path(uploaded_file.name).suffix or ".png"
                 temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
                 temp_file.write(uploaded_file.read())
@@ -365,7 +466,7 @@ def main():
         inject_noise = st.checkbox(
             "Inject Synthetic Persian OCR Noise",
             value=False,
-            help="Simulates realistic Persian character confusion and OCR degradation to stress-test error recovery.",
+            help="Simulates realistic Persian character confusion and OCR degradation to test error recovery.",
         )
         noise_rate = 0.08
         max_noise_perturbations = 3
@@ -380,18 +481,22 @@ def main():
         st.caption(f"Mock Fallback: `{settings.OCR_MOCK_FALLBACK}`")
 
     # Main Area Layout
-    col_left, col_right = st.columns([1, 1.4], gap="medium")
+    col_left, col_right = st.columns([1, 1.35], gap="large")
 
+    # Placeholders for dynamic content
     with col_left:
         st.subheader("🖼️ Question Image")
         if image_path and image_path.exists():
             try:
                 img = Image.open(image_path)
-                st.image(img, caption=f"Selected: {image_path.name}", use_container_width=True)
+                st.image(img, caption=f"File: {image_path.name}", use_container_width=True)
             except Exception as e:
                 st.error(f"Error loading image: {e}")
         else:
             st.info("👈 Please select or upload a question image from the sidebar to begin.")
+
+        # Prominent Noisy Text display placeholder right below the image
+        noisy_text_container = st.container()
 
     with col_right:
         st.subheader("🚀 Execution & Workflow Log")
@@ -401,7 +506,7 @@ def main():
 
             if run_button:
                 # Run the step-by-step solver
-                result = run_solver_with_live_timeline(
+                result, corrupted_text, perts = execute_stepwise_solving(
                     image_path=image_path,
                     inject_noise=inject_noise,
                     noise_rate=noise_rate,
@@ -409,33 +514,67 @@ def main():
                     max_retries=max_retries,
                 )
 
+                # If noise was injected, populate the prominent corrupted text box below the image
+                if inject_noise and corrupted_text:
+                    with noisy_text_container:
+                        st.markdown("### ⚠️ Corrupted OCR Text (Noise Injected)")
+                        st.markdown(
+                            f"Below is the degraded OCR text injected with **{len(perts)} synthetic perturbation(s)** "
+                            f"before entering the agent's self-healing loop:"
+                        )
+                        st.markdown(f'<div class="noisy-box">{corrupted_text}</div>', unsafe_allow_html=True)
+
                 st.divider()
-                st.subheader("📊 Final Output & Metrics")
+                st.subheader("📊 Final Human-Readable Results")
 
-                # Metrics Row
-                m1, m2, m3 = st.columns(3)
-                with m1:
-                    st.metric(label="Selected Answer", value=f"Option {result.output.answer}")
-                with m2:
-                    st.metric(label="Total Attempts", value=result.total_attempts)
-                with m3:
-                    changed_badge = "Yes (Corrected)" if result.output.changed else "No (Original)"
-                    st.metric(label="OCR Text Changed", value=changed_badge)
+                # Prominent Final Answer Banner
+                if result.is_resolved:
+                    st.markdown(
+                        f"""
+                        <div class="answer-banner">
+                            <div class="answer-label">✅ Final Selected Option</div>
+                            <div class="answer-value">Option {result.output.answer}</div>
+                            <div style="margin-top: 6px; font-size: 0.92rem; opacity: 0.95;">
+                                Resolved in <strong>{result.total_attempts}</strong> attempt(s) 
+                                &bull; OCR Text Status: <strong>{'Corrected via Visual Refinement' if result.output.changed else 'Original OCR Preserved'}</strong>
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f"""
+                        <div class="answer-banner-fallback">
+                            <div class="answer-label">⚠️ Fallback Selected Option (Cap Reached)</div>
+                            <div class="answer-value">Option {result.output.answer}</div>
+                            <div style="margin-top: 6px; font-size: 0.92rem; opacity: 0.95;">
+                                Total Attempts: <strong>{result.total_attempts}</strong> &bull; Reason: {result.unresolved_reason or 'Heuristic fallback'}
+                            </div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
-                # Strict Output Schema
-                st.markdown("#### 📦 Final Parsed JSON Output (Phase 4 Schema)")
-                final_json_dict = format_single_result(result)
-                st.json(final_json_dict)
+                # Clean, human-readable Final Question Text
+                st.markdown("#### 📝 Final Question Text")
+                st.markdown(f'<div class="content-box">{result.output.question_text}</div>', unsafe_allow_html=True)
 
-                # Download button
-                json_str = json.dumps(final_json_dict, ensure_ascii=False, indent=2)
-                st.download_button(
-                    label="💾 Download Result JSON",
-                    data=json_str,
-                    file_name=f"result_{image_path.stem}.json",
-                    mime="application/json",
-                    use_container_width=True,
-                )
+                # Clean, human-readable Original OCR Text
+                st.markdown("#### 📄 Original Extracted OCR Text")
+                st.markdown(f'<div class="content-box">{result.output.original_ocr_text}</div>', unsafe_allow_html=True)
+
+                # Summary Details & Download
+                with st.expander("📦 Export / Audit Details", expanded=False):
+                    final_json_dict = format_single_result(result)
+                    json_str = json.dumps(final_json_dict, ensure_ascii=False, indent=2)
+                    st.download_button(
+                        label="💾 Download Result JSON",
+                        data=json_str,
+                        file_name=f"result_{image_path.stem}.json",
+                        mime="application/json",
+                        use_container_width=True,
+                    )
         else:
             st.write("Awaiting image selection...")
 
