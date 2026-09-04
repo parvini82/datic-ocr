@@ -32,19 +32,28 @@ flowchart TD
 
 ---
 
-## Deliverables & Features
+## Deliverables & Core Features
 
+### Key Deliverables
+- **Engineering Write-Up (PDF)**: [`writeup.pdf`](writeup.pdf) (also available as [`write-up.pdf`](write-up.pdf)) — Formal documentation detailing architectural decisions, the mathematical justification for the retry cap (`MAX_RETRIES = 3`), error recovery analysis, and fallback resolution strategies for ambiguous or unsolvable question crops.
+- **Structured Sample Results (JSON)**: [`sample_outputs.json`](sample_outputs.json) — Generated results array meeting the exact Phase 4 specification (`answer`, `question_text`, `changed`, `original_ocr_text`) across all sample questions.
+- **Interactive RTL HTML Report**: [`sample_outputs.html`](sample_outputs.html) — Beautiful card-based RTL report supporting Persian typography (`Vazirmatn`/`Tahoma`) and MathJax LaTeX equation rendering without character scrambling.
+- **Deliverables Export Script**: [`scripts/export_deliverables.py`](scripts/export_deliverables.py) — Automated batch script to evaluate all sample images and output both `sample_outputs.json` and `sample_outputs.html`.
+
+### Pipeline Phases
 - **Phase 1 (Base Setup & OCR Client)**: Clean, typed integration with the **Datalab OCR API** (`https://www.datalab.to/api/v1/convert`), with timeout controls, exponential backoff, rate limit handling, and offline mock fallback for local tests.
 - **Phase 2 (Core Retry & Refinement Loop)**: Multi-step agent loop connecting vision inspection with mathematical reasoning. Detects option mismatches, visually re-examines the scan crop, produces minimal corrections, and repeats up to a defined retry cap.
 - **Phase 3 (Synthetic Persian OCR Noise Injection)**: Dedicated perturbation engine simulating realistic Persian OCR degradation (lookalike letters $\text{پ/ب/ت/ث}$, $\text{ک/گ}$, confused Persian digits $\text{۲/۳}$, $\text{۴/۶}$, $\text{۰/۵}$, and math notation artifacts).
 - **Phase 4 (Strict Output Formatting)**: Enforces the exact JSON output format per question block:
   ```json
-  {
-    "answer": "3",
-    "question_text": "...",
-    "changed": true,
-    "original_ocr_text": "..."
-  }
+  [
+    {
+      "answer": "3",
+      "question_text": "...",
+      "changed": true,
+      "original_ocr_text": "..."
+    }
+  ]
   ```
 
 ---
@@ -103,11 +112,16 @@ streamlit run app.py
 - **Synthetic Noise Simulation**: Toggle Persian OCR noise injection with tunable error rates and perturbation counts.
 - **Structured JSON & Metrics**: Inspect the strict final JSON output, summary metrics (selected answer, attempt count, `changed` status), and download the result JSON.
 
-### Run on Sample Exam Questions
-To run the solver across all provided sample questions in `samples/`:
+### Export Deliverables & Run on Sample Exam Questions
+To evaluate all sample questions in `samples/` and export the official `sample_outputs.json` and `sample_outputs.html` deliverables:
+```bash
+python scripts/export_deliverables.py
+```
+Or run the quick runner:
 ```bash
 python scripts/run_samples.py
 ```
+
 
 ### Command-Line Interface (CLI)
 Solve a single image block:
@@ -195,7 +209,12 @@ ocr-aware-solver/
 │   ├── test_noise.py           # Synthetic noise unit tests
 │   ├── test_agent.py           # Agent loop & fallback unit tests
 │   └── test_output_format.py   # Strict JSON output format tests
-└── scripts/
-    └── run_samples.py          # Sample batch runner
+├── scripts/
+│   ├── export_deliverables.py  # Exports sample_outputs.json & sample_outputs.html
+│   └── run_samples.py          # Sample batch runner
+├── sample_outputs.json         # Phase 4 strict JSON deliverables
+├── sample_outputs.html         # Rich Persian RTL HTML deliverable viewer
+├── writeup.pdf                 # Architectural decision write-up & retry cap justification
+└── Design.pdf                  # System design specifications
 ```
 

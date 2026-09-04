@@ -1,0 +1,26 @@
+[
+  {
+    "answer": "3",
+    "question_text": "۱۱۳- تابع  $f(x) = mx^2 - nx - k$  در هر بازه، هم صعودی و هم نزولی است. اگر مجموعه زیر، تابع باشد، مقدار\n\n$f(\\sqrt{5})$  کدام است؟  $\\{(m, n-1), (0, k), (n-1, m^2 + 2m - 1), (2k+2, 2k+1)\\}$\n\n- (۱) ۱\n- (۲)  $-\\sqrt{5}$\n- (۳) ۱\n- (۴)  $\\sqrt{5}$",
+    "changed": false,
+    "original_ocr_text": "۱۱۳- تابع  $f(x) = mx^2 - nx - k$  در هر بازه، هم صعودی و هم نزولی است. اگر مجموعه زیر، تابع باشد، مقدار\n\n$f(\\sqrt{5})$  کدام است؟  $\\{(m, n-1), (0, k), (n-1, m^2 + 2m - 1), (2k+2, 2k+1)\\}$\n\n- (۱) ۱\n- (۲)  $-\\sqrt{5}$\n- (۳) ۱\n- (۴)  $\\sqrt{5}$"
+  },
+  {
+    "answer": "2",
+    "question_text": "۱۱۵-  $\\alpha$  و  $\\beta$  ریشه‌های معادله  $ax^2 - 8x + 4 = 0$  است. اگر مجموع و حاصل ضرب ریشه‌های معادله‌ای با ریشه‌های\n\n$\\alpha\\beta^2$  و  $\\alpha^2\\beta$ ، برابر باشند، مقدار  $\\log_{\\sqrt{3}} a$  کدام است؟ ( $a > 0$ )\n\n۱ (۱)\n\n۲ (۲)\n\n۳ (۳)\n\n۴ (۴)",
+    "changed": false,
+    "original_ocr_text": "۱۱۵-  $\\alpha$  و  $\\beta$  ریشه‌های معادله  $ax^2 - 8x + 4 = 0$  است. اگر مجموع و حاصل ضرب ریشه‌های معادله‌ای با ریشه‌های\n\n$\\alpha\\beta^2$  و  $\\alpha^2\\beta$ ، برابر باشند، مقدار  $\\log_{\\sqrt{3}} a$  کدام است؟ ( $a > 0$ )\n\n۱ (۱)\n\n۲ (۲)\n\n۳ (۳)\n\n۴ (۴)"
+  },
+  {
+    "answer": "1",
+    "question_text": "دامنه = ۱۱۸  $f(x) = \\sqrt{\\frac{x}{\\log_2 x}}$  شامل چند عدد صحیح است؟\n\n(۱) صفر\n\n(۲) ۱\n\n(۳) ۲\n\n(۴) ۳",
+    "changed": false,
+    "original_ocr_text": "دامنه = ۱۱۸  $f(x) = \\sqrt{\\frac{x}{\\log_2 x}}$  شامل چند عدد صحیح است؟\n\n(۱) صفر\n\n(۲) ۱\n\n(۳) ۲\n\n(۴) ۳"
+  },
+  {
+    "answer": "2",
+    "question_text": "(۱۲) - در شکل زیر، مساحت مثلث ABC برابر  $2\\sqrt{3}$  است. فاصله D از C کدام است؟\n\n![A geometric diagram showing a right-angled triangle ABC with a right angle at vertex D. Vertex A is at the top, B is on the vertical side AD, and C is on the hypotenuse AC. The angle at A is labeled 60 degrees, and the angle at C is also labeled 60 degrees. The length of side AB is labeled 4/3, and the length of side BC is labeled 2/3. The right angle at D is marked with a square symbol.](e84c7434834958f49141d04130194231_img.jpg)\n\nA geometric diagram showing a right-angled triangle ABC with a right angle at vertex D. Vertex A is at the top, B is on the vertical side AD, and C is on the hypotenuse AC. The angle at A is labeled 60 degrees, and the angle at C is also labeled 60 degrees. The length of side AB is labeled 4/3, and the length of side BC is labeled 2/3. The right angle at D is marked with a square symbol.\n\n(۱)  $6\\sqrt{6}$\n\n(۲)  $3\\sqrt{6}$\n\n(۳)  $2\\sqrt{3}$\n\n(۴)  $\\sqrt{3}$",
+    "changed": false,
+    "original_ocr_text": "(۱۲) - در شکل زیر، مساحت مثلث ABC برابر  $2\\sqrt{3}$  است. فاصله D از C کدام است؟\n\n![A geometric diagram showing a right-angled triangle ABC with a right angle at vertex D. Vertex A is at the top, B is on the vertical side AD, and C is on the hypotenuse AC. The angle at A is labeled 60 degrees, and the angle at C is also labeled 60 degrees. The length of side AB is labeled 4/3, and the length of side BC is labeled 2/3. The right angle at D is marked with a square symbol.](e84c7434834958f49141d04130194231_img.jpg)\n\nA geometric diagram showing a right-angled triangle ABC with a right angle at vertex D. Vertex A is at the top, B is on the vertical side AD, and C is on the hypotenuse AC. The angle at A is labeled 60 degrees, and the angle at C is also labeled 60 degrees. The length of side AB is labeled 4/3, and the length of side BC is labeled 2/3. The right angle at D is marked with a square symbol.\n\n(۱)  $6\\sqrt{6}$\n\n(۲)  $3\\sqrt{6}$\n\n(۳)  $2\\sqrt{3}$\n\n(۴)  $\\sqrt{3}$"
+  }
+]
