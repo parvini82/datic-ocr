@@ -88,6 +88,21 @@ OCR_MOCK_FALLBACK=true
 
 ## Running the Solver
 
+### Interactive Web UI (Streamlit)
+Launch the interactive web frontend to visualize the step-by-step retry, option matching, and visual refinement loop in real time:
+```bash
+streamlit run app.py
+```
+**UI Features**:
+- **Image Input**: Upload any question crop (PNG/JPG) or select from built-in sample exam questions.
+- **Live Workflow Timeline (`st.status`)**:
+  - **Step 1**: Initial OCR text extraction with provider and status tracking.
+  - **Step 2**: Initial LLM mathematical solving attempt and option parsing.
+  - **Step 3**: Option matching verification and mismatch detection.
+  - **Step 4**: Visual re-inspection, identified transcription errors, corrected text, and re-solve attempts.
+- **Synthetic Noise Simulation**: Toggle Persian OCR noise injection with tunable error rates and perturbation counts.
+- **Structured JSON & Metrics**: Inspect the strict final JSON output, summary metrics (selected answer, attempt count, `changed` status), and download the result JSON.
+
 ### Run on Sample Exam Questions
 To run the solver across all provided sample questions in `samples/`:
 ```bash
@@ -150,6 +165,7 @@ When the retry cap is reached without an exact option match, the agent terminate
 ocr-aware-solver/
 ├── pyproject.toml              # Build & dependency metadata
 ├── requirements.txt            # Core dependencies
+├── app.py                      # Interactive Streamlit Web Frontend
 ├── .env.example                # Environment template
 ├── README.md                   # Documentation & write-up
 ├── samples/                    # Sample exam crops (q113, q115, q118, q121)
@@ -182,3 +198,4 @@ ocr-aware-solver/
 └── scripts/
     └── run_samples.py          # Sample batch runner
 ```
+
