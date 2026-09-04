@@ -32,7 +32,7 @@ def test_datalab_missing_api_key_no_fallback(tmp_path: Path):
     sample_file = tmp_path / "custom.png"
     sample_file.write_bytes(b"dummy image data")
 
-    client = DatalabOCRClient(api_key=None, enable_mock_fallback=False)
+    client = DatalabOCRClient(api_key="", enable_mock_fallback=False)
     with pytest.raises(DatalabAuthError):
         client.extract_text(sample_file)
 

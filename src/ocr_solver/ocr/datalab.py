@@ -65,7 +65,7 @@ class DatalabOCRClient(BaseOCRClient):
         timeout: float = 60.0,
         enable_mock_fallback: Optional[bool] = None,
     ):
-        self.api_key = api_key or settings.DATALAB_API_KEY
+        self.api_key = api_key if api_key is not None else settings.DATALAB_API_KEY
         self.api_url = api_url or settings.DATALAB_API_URL
         self.timeout = timeout
         self.enable_mock_fallback = (

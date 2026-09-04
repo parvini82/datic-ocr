@@ -3,6 +3,8 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock
+import httpx
+import openai
 
 from ocr_solver.agent.options import (
     extract_options_from_text,
@@ -142,3 +144,26 @@ def test_agent_loop_retry_cap_and_fallback(tmp_path: Path):
     assert result.is_resolved is False
     assert result.output.answer == "2"
     assert result.unresolved_reason is not None
+
+
+def test_agent_aborts_on_auth_error(tmp_path: Path):
+    """Test that authentication errors immediately bubble up and abort without retrying."""
+    dummy_img = tmp_path / "q113.png"
+    dummy_img.write_bytes(b"dummy")
+
+    mock_llm = MagicMock(spec=VisionLLMClient)
+    # Simulate a 401 AuthenticationError from OpenAI/OpenRouter
+    mock_request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    mock_response = httpx.Response(401, request=mock_request, json={"error": {"message": "Invalid API Key"}})
+    mock_llm.chat_completion_with_image.side_effect = openai.AuthenticationError(
+        message="Invalid API Key", response=mock_response, body=None
+    )
+
+    agent = OCRAwareSolverAgent(llm_client=mock_llm, max_retries=3)
+    ocr_text = "۱۱۳- تابع ... -۱ (۱    -√۵ (۲    ۱ (۳    √۵ (۴"
+
+    with pytest.raises(openai.AuthenticationError):
+        agent.solve(dummy_img, ocr_text)
+
+    # Verify that it only called once and did NOT attempt to retry/refine
+    assert mock_llm.chat_completion_with_image.call_count == 1

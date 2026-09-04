@@ -77,13 +77,31 @@ class VisionLLMClient:
 
         self._client: Optional[OpenAI] = None
         if self.api_key:
-            self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "HTTP-Referer": "https://github.com/datic-ai/ocr-aware-solver",
+                "X-Title": "OCR-Aware Solver",
+            }
+            self._client = OpenAI(
+                base_url=self.base_url,
+                api_key=self.api_key,
+                default_headers=headers,
+            )
 
     @property
     def client(self) -> OpenAI:
         if self._client is None:
             if self.api_key:
-                self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
+                headers = {
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": "https://github.com/datic-ai/ocr-aware-solver",
+                    "X-Title": "OCR-Aware Solver",
+                }
+                self._client = OpenAI(
+                    base_url=self.base_url,
+                    api_key=self.api_key,
+                    default_headers=headers,
+                )
             else:
                 raise ValueError("OPENROUTER_API_KEY is not configured in settings or environment.")
         return self._client

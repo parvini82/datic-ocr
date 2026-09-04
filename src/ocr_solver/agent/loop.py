@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+import openai
 
 from ocr_solver.agent.options import (
     clean_text,
@@ -24,6 +25,15 @@ from ocr_solver.config import settings
 from ocr_solver.models import DetailedSolverResult, QuestionOutput, SolveAttempt
 
 logger = logging.getLogger(__name__)
+
+
+# Non-retryable critical exceptions that must immediately bubble up and abort execution
+CRITICAL_EXCEPTIONS = (
+    openai.AuthenticationError,
+    openai.PermissionDeniedError,
+    openai.APIConnectionError,
+    ValueError,
+)
 
 
 class OCRAwareSolverAgent:
@@ -204,6 +214,8 @@ class OCRAwareSolverAgent:
                 user_prompt=user_prompt,
                 image_path=image_path,
             )
+        except CRITICAL_EXCEPTIONS:
+            raise
         except Exception as e:
             logger.error("LLM solve call failed: %s", e)
             res = {
@@ -271,6 +283,8 @@ class OCRAwareSolverAgent:
                 image_path=image_path,
                 temperature=0.0,
             )
+        except CRITICAL_EXCEPTIONS:
+            raise
         except Exception as e:
             logger.error("Vision OCR refinement call failed: %s", e)
             return {
@@ -315,6 +329,8 @@ class OCRAwareSolverAgent:
                 "Selected highest likelihood option via fallback heuristics.",
             )
             return best_guess, justification
+        except CRITICAL_EXCEPTIONS:
+            raise
         except Exception as e:
             logger.error("Fallback heuristic call failed: %s. Using default option 1.", e)
             return "1", f"Fallback default to option 1 due to error: {e}"
