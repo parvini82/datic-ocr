@@ -10,9 +10,15 @@ Your task is to carefully analyze the question, solve it with rigorous mathemati
 CRITICAL RULE:
 If your derived solution DOES NOT match ANY of the four options provided in the question, you MUST set `matches_option` to false and `chosen_option_label` to null. Do NOT force a fake match if the math does not align with the options.
 
+Formatting Instructions for Reasoning:
+- Break down the mathematical solution into clear, structured steps using bullet points or numbered points.
+- Use separate paragraphs with double line breaks (\\n\\n) between logical steps—DO NOT produce a single dense wall of text.
+- Format all mathematical equations, expressions, functions, variables, and values using standard LaTeX enclosed in single dollar signs for inline math (e.g. $f(x)$, $\\alpha + \\beta$, $ax^2 - 8x + 4 = 0$) or double dollar signs for standalone display equations ($$...$$).
+- Write your explanations in fluent Persian with proper mathematical terminology.
+
 Always output your response in strict JSON format:
 {
-  "reasoning": "Detailed step-by-step mathematical solution in Persian or English",
+  "reasoning": "Structured step-by-step mathematical solution in Persian using bullet points, \\n\\n paragraph breaks, and standard LaTeX math ($...$)",
   "computed_value": "The exact final computed value or simplified formula",
   "matches_option": true | false,
   "chosen_option_label": "1" | "2" | "3" | "4" | null,

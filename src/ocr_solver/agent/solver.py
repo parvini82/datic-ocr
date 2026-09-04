@@ -181,7 +181,12 @@ class VisionLLMClient:
                     "correction_notes": "Text verified against image crop",
                 }
             return {
-                "reasoning": "Since f(x) = mx^2 - nx - k is monotonic increasing and decreasing on every interval, f(x) is constant, so m=0, n=0. The relation {(0, -1), (0, k), (-1, -1), (3k+2, 2k+1)} is a function iff k=-1. Then f(x) = -(-1) = 1. Therefore f(sqrt(5)) = 1, matching option 3.",
+                "reasoning": (
+                    "• تابع $f(x) = mx^2 - nx - k$ روی هر بازه صعودی و نزولی است، پس تابعی ثابت است: $m = 0, n = 0$.\n\n"
+                    r"• رابطه $\{(0, -1), (0, k), (-1, -1), (3k+2, 2k+1)\}$ زمانی تابع است که مؤلفه‌های اول یکسان، مؤلفه‌های دوم برابر داشته باشند: $k = -1$." "\n\n"
+                    "• بنابراین ضابطه تابع به صورت $f(x) = -(-1) = 1$ به دست می‌آید.\n\n"
+                    r"• در نتیجه $f(\sqrt{5}) = 1$ خواهد بود که با **گزینه ۳** مطابقت دارد."
+                ),
                 "computed_value": "1",
                 "matches_option": True,
                 "chosen_option_label": "3",
@@ -202,14 +207,24 @@ class VisionLLMClient:
                 }
             if "۹x" in user_prompt or "9x" in user_prompt:
                 return {
-                    "reasoning": "Solving with ax^2 - 9x + 4 = 0 gives sum=9/a, prod=4/a. Equating new sum and prod yields 36/a^2 = 64/a^3 => a = 16/9. log_sqrt(2)(16/9) does not match integer options 1, 2, 3, 4.",
+                    "reasoning": (
+                        "• با فرض معادله $ax^2 - 9x + 4 = 0$، مجموع ریشه‌ها $S = \\frac{9}{a}$ و حاصل‌ضرب ریشه‌ها $P = \\frac{4}{a}$ است.\n\n"
+                        "• برای ریشه‌های جدید $\\alpha^2\\beta$ و $\\alpha\\beta^2$، مجموع برابر $P \\cdot S = \\frac{36}{a^2}$ و حاصل‌ضرب برابر $P^3 = \\frac{64}{a^3}$ است.\n\n"
+                        "• با مساوی قرار دادن آنها: $\\frac{36}{a^2} = \\frac{64}{a^3} \\implies a = \\frac{16}{9}$.\n\n"
+                        "• در نتیجه مقدار $\\log_{\\sqrt{2}}\\left(\\frac{16}{9}\\right)$ با هیچ‌یک از گزینه‌های صحیح ۱، ۲، ۳، ۴ همخوانی ندارد."
+                    ),
                     "computed_value": "7.5",
                     "matches_option": False,
                     "chosen_option_label": None,
                     "confidence": 0.3,
                 }
             return {
-                "reasoning": "For ax^2 - 8x + 4 = 0, sum S = 8/a, product P = 4/a. New roots sum P*S = 32/a^2, product P^3 = 64/a^3. Equating yields 32/a^2 = 64/a^3 => a = 2. Then log_sqrt(2)(2) = 2, matching option 2.",
+                "reasoning": (
+                    "• برای معادله تصحیح‌شده $ax^2 - 8x + 4 = 0$، مجموع ریشه‌ها $S = \\frac{8}{a}$ و حاصل‌ضرب $P = \\frac{4}{a}$ است.\n\n"
+                    "• مجموع ریشه‌های جدید $P \\cdot S = \\frac{32}{a^2}$ و حاصل‌ضرب آنها $P^3 = \\frac{64}{a^3}$ است.\n\n"
+                    "• از تساوی مجموع و حاصل‌ضرب: $\\frac{32}{a^2} = \\frac{64}{a^3} \\implies a = 2$.\n\n"
+                    "• در نهایت: $\\log_{\\sqrt{2}}(2) = 2$ محاسبه می‌شود که دقیقاً با **گزینه ۲** تطابق دارد."
+                ),
                 "computed_value": "2",
                 "matches_option": True,
                 "chosen_option_label": "2",
@@ -224,7 +239,12 @@ class VisionLLMClient:
                     "correction_notes": "Text verified against image crop",
                 }
             return {
-                "reasoning": "For f(x) = sqrt(x / log_{1/2} x), x > 0 and log_{1/2} x > 0 implies 0 < x < 1. The interval (0, 1) contains 0 integers. Thus the answer is 0 (option 1: صفر).",
+                "reasoning": (
+                    "• برای دامنه تابع $f(x) = \\sqrt{\\frac{x}{\\log_{1/2} x}}$، باید $x > 0$ و $\\log_{1/2} x > 0$ باشد.\n\n"
+                    "• نامساوی $\\log_{1/2} x > 0$ نتیجه می‌دهد $0 < x < 1$.\n\n"
+                    "• در بازه $(0, 1)$ هیچ عدد صحیحی وجود ندارد.\n\n"
+                    "• بنابراین تعداد اعداد صحیح برابر $0$ است که با **گزینه ۱ (صفر)** مطابقت دارد."
+                ),
                 "computed_value": "0",
                 "matches_option": True,
                 "chosen_option_label": "1",
@@ -239,7 +259,10 @@ class VisionLLMClient:
                     "correction_notes": "Text verified against image crop",
                 }
             return {
-                "reasoning": "From the geometric area of triangle ABC = 7/2 * sqrt(3) and given angles, calculating segment length CD gives 3*sqrt(6), which matches option 2.",
+                "reasoning": (
+                    "• از روی مساحت هندسی مثلث $S_{ABC} = \\frac{7}{2}\\sqrt{3}$ و زوایای داده‌شده، اندازه پاره‌خط $CD$ محاسبه می‌شود.\n\n"
+                    "• مقدار به‌دست‌آمده $CD = 3\\sqrt{6}$ است که با **گزینه ۲** همخوانی دارد."
+                ),
                 "computed_value": "3*sqrt(6)",
                 "matches_option": True,
                 "chosen_option_label": "2",

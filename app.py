@@ -113,15 +113,20 @@ st.markdown(
     }
     
     .reasoning-box {
-        background-color: #F1F5F9;
-        border-left: 4px solid #3B82F6;
-        border-radius: 0 8px 8px 0;
-        padding: 12px 16px;
+        background-color: #F8FAFC;
+        border-right: 4px solid #3B82F6;
+        border-left: none;
+        border-radius: 8px 0 0 8px;
+        padding: 14px 18px;
         margin: 10px 0;
         color: #1E293B;
-        font-size: 0.95rem;
-        line-height: 1.6;
+        font-size: 0.98rem;
+        line-height: 1.8;
+        direction: rtl;
+        text-align: right;
+        font-family: Tahoma, sans-serif;
     }
+
     
     .pill {
         display: inline-block;
@@ -156,6 +161,23 @@ def safe_update_status(status_container, **kwargs):
             status_container.update(**kwargs)
         except Exception:
             pass
+
+
+def render_reasoning_markdown(reasoning_text: str) -> None:
+    """
+    Render LLM mathematical reasoning using st.markdown(..., unsafe_allow_html=True)
+    with structural RTL styling and full LaTeX math rendering support.
+    """
+    if not reasoning_text:
+        st.caption("No reasoning text available.")
+        return
+
+    formatted_html = (
+        f'<div dir="rtl" style="text-align: right; line-height: 1.8; font-family: Tahoma, sans-serif;" class="reasoning-box">\n\n'
+        f'{reasoning_text}\n\n'
+        f'</div>'
+    )
+    st.markdown(formatted_html, unsafe_allow_html=True)
 
 
 def execute_stepwise_solving(
@@ -236,7 +258,7 @@ def execute_stepwise_solving(
             st.markdown(opt_pills, unsafe_allow_html=True)
 
             st.markdown("**LLM Mathematical Reasoning:**")
-            st.markdown(f'<div class="reasoning-box">{attempt_result.reasoning}</div>', unsafe_allow_html=True)
+            render_reasoning_markdown(attempt_result.reasoning)
 
             c1, c2 = st.columns(2)
             with c1:
@@ -338,7 +360,7 @@ def execute_stepwise_solving(
                 st.markdown(opt_pills, unsafe_allow_html=True)
 
                 st.markdown("**Mathematical Reasoning with Corrected Formulation:**")
-                st.markdown(f'<div class="reasoning-box">{attempt_result.reasoning}</div>', unsafe_allow_html=True)
+                render_reasoning_markdown(attempt_result.reasoning)
 
                 c1, c2 = st.columns(2)
                 with c1:
@@ -391,7 +413,8 @@ def execute_stepwise_solving(
 
         with st.expander("🛡️ Fallback Heuristic Justification", expanded=True):
             st.markdown(f"**Selected Best-Guess Candidate:** `Option {best_guess}`")
-            st.markdown(f"**Heuristic Justification:** {fallback_reason}")
+            st.markdown("**Heuristic Justification:**")
+            render_reasoning_markdown(fallback_reason)
 
         safe_update_status(
             status,
