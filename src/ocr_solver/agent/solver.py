@@ -30,30 +30,75 @@ def encode_image_to_data_url(image_path: Union[str, Path]) -> str:
 
 
 def extract_json_from_response(content: str) -> Dict[str, Any]:
-    """Extract and parse JSON object from LLM text response."""
+    """Extract and parse JSON object from LLM text response with robust error recovery for LaTeX escapes."""
     content = content.strip()
 
-    # Try direct parse
-    try:
-        return json.loads(content)
-    except json.JSONDecodeError:
-        pass
+    def try_parse(s: str) -> Optional[Dict[str, Any]]:
+        try:
+            return json.loads(s, strict=False)
+        except Exception:
+            pass
 
-    # Try markdown json code block
+        # 1. Sanitize invalid escape sequences (common in LaTeX formulas from LLMs: \sqrt, \implies, \{, \alpha, etc.)
+        sanitized = re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', s)
+        try:
+            return json.loads(sanitized, strict=False)
+        except Exception:
+            pass
+
+        # 2. Remove trailing commas before closing braces/brackets
+        sanitized_no_trailing = re.sub(r',\s*([\]}])', r'\1', sanitized)
+        try:
+            return json.loads(sanitized_no_trailing, strict=False)
+        except Exception:
+            pass
+
+        return None
+
+    # Step 1: Try direct parse
+    res = try_parse(content)
+    if res is not None and isinstance(res, dict):
+        return res
+
+    # Step 2: Try markdown json code block
     json_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", content)
     if json_match:
-        try:
-            return json.loads(json_match.group(1))
-        except json.JSONDecodeError:
-            pass
+        res = try_parse(json_match.group(1).strip())
+        if res is not None and isinstance(res, dict):
+            return res
 
-    # Try finding outermost braces { ... }
+    # Step 3: Try finding outermost braces { ... }
     brace_match = re.search(r"\{[\s\S]*\}", content)
     if brace_match:
-        try:
-            return json.loads(brace_match.group(0))
-        except json.JSONDecodeError:
-            pass
+        res = try_parse(brace_match.group(0).strip())
+        if res is not None and isinstance(res, dict):
+            return res
+
+    # Step 4: Fallback heuristic regex extraction for known fields
+    fallback_dict: Dict[str, Any] = {}
+
+    reasoning_match = re.search(r'"reasoning"\s*:\s*"([\s\S]*?)(?<!\\)"', content)
+    if reasoning_match:
+        fallback_dict["reasoning"] = reasoning_match.group(1).replace(r'\"', '"')
+
+    val_match = re.search(r'"computed_value"\s*:\s*(?:"([^"]*)"|([^,\}\s]+))', content)
+    if val_match:
+        fallback_dict["computed_value"] = val_match.group(1) or val_match.group(2)
+
+    label_match = re.search(r'"chosen_option_label"\s*:\s*(?:"([^"]*)"|([^,\}\s]+))', content)
+    if label_match:
+        fallback_dict["chosen_option_label"] = label_match.group(1) or label_match.group(2)
+
+    match_opt = re.search(r'"matches_option"\s*:\s*(true|false)', content, re.IGNORECASE)
+    if match_opt:
+        fallback_dict["matches_option"] = match_opt.group(1).lower() == "true"
+
+    corrected_match = re.search(r'"corrected_question_text"\s*:\s*"([\s\S]*?)(?<!\\)"', content)
+    if corrected_match:
+        fallback_dict["corrected_question_text"] = corrected_match.group(1).replace(r'\"', '"')
+
+    if fallback_dict:
+        return fallback_dict
 
     raise ValueError(f"Failed to parse valid JSON from LLM response:\n{content}")
 

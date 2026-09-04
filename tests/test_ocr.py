@@ -18,7 +18,7 @@ def test_datalab_mock_fallback(tmp_path: Path):
     sample_file = tmp_path / "q113.png"
     sample_file.write_bytes(b"dummy image data")
 
-    client = DatalabOCRClient(api_key=None, enable_mock_fallback=True)
+    client = DatalabOCRClient(api_key="", enable_mock_fallback=True)
     result = client.extract_text(sample_file)
 
     assert result.success is True

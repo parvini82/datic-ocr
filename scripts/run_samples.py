@@ -9,7 +9,7 @@ from pathlib import Path
 root_dir = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root_dir / "src"))
 
-from ocr_solver.formatter import format_single_result, to_json_string
+from ocr_solver.formatter import format_single_result, generate_html_report, to_json_string
 from ocr_solver.pipeline import SolverPipeline
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -31,14 +31,21 @@ def main() -> None:
         print(f"\n---> Evaluating: {img.name}")
         res = pipeline.process_image(img, inject_synthetic_noise=False)
         clean_results.append(res)
-        print("Result JSON:")
-        print(to_json_string(res))
+        print(f"Solved: {img.name} -> Answer: {res.output.answer} (Changed: {res.output.changed})")
 
-    output_path = root_dir / "outputs" / "sample_results.json"
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(to_json_string(clean_results), encoding="utf-8")
-    print(f"\nAll results saved to {output_path}")
+    # 1. Save strict JSON output
+    output_json_path = root_dir / "outputs" / "sample_results.json"
+    output_json_path.parent.mkdir(parents=True, exist_ok=True)
+    output_json_path.write_text(to_json_string(clean_results), encoding="utf-8")
+    print(f"\n[✓] Results JSON saved to: {output_json_path}")
+
+    # 2. Generate and save styled RTL HTML Report
+    output_html_path = root_dir / "outputs" / "report.html"
+    generate_html_report(clean_results, str(output_html_path))
+    print(f"[✓] Beautiful RTL HTML Report generated at: {output_html_path}")
+    print(f"    👉 Open in browser: file://{output_html_path.resolve()}")
 
 
 if __name__ == "__main__":
     main()
+

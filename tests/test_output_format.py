@@ -60,3 +60,63 @@ def test_detailed_result_formatting():
     formatted = format_single_result(detailed)
     assert set(formatted.keys()) == {"answer", "question_text", "changed", "original_ocr_text"}
     assert formatted["changed"] is True
+
+
+def test_generate_html_report(tmp_path):
+    """Verify HTML report generation includes RTL direction, Vazirmatn font, and required card fields."""
+    from ocr_solver.formatter import generate_html_report
+    from pathlib import Path
+
+    sample_results = [
+        {
+            "image_name": "q113.png",
+            "answer": "3",
+            "question_text": "متن نهایی سوال ۱۱۳",
+            "changed": False,
+            "original_ocr_text": "متن اولیه OCR سوال ۱۱۳",
+        },
+        {
+            "image_name": "q115.png",
+            "answer": "2",
+            "question_text": "متن اصلاح شده سوال ۱۱۵",
+            "changed": True,
+            "original_ocr_text": "متن دارای خطای OCR سوال ۱۱۵",
+        },
+    ]
+
+    report_file = tmp_path / "report.html"
+    html = generate_html_report(sample_results, str(report_file))
+
+    assert report_file.exists()
+    assert 'dir="rtl"' in html
+    assert "Vazirmatn" in html
+    assert "q113.png" in html
+    assert "q115.png" in html
+    assert "متن اولیه OCR" in html
+    assert "متن نهایی سوال" in html
+    assert "گزینه 3" in html
+    assert "گزینه 2" in html
+    assert "تغییر یافته" in html
+
+
+def test_extract_json_with_latex_escapes():
+    """Verify JSON extractor correctly recovers unescaped LaTeX backslashes from LLM."""
+    from ocr_solver.agent.solver import extract_json_from_response
+
+    # Simulated LLM output with unescaped LaTeX backslashes: \{, \implies, \sqrt, etc.
+    llm_raw = (
+        '{\n'
+        '  "reasoning": "f(x) is constant. S = \\{(m, n-1), (0, k)\\}. -1 = k \\implies k = -1. f(\\sqrt{5}) = 1.",\n'
+        '  "computed_value": "1",\n'
+        '  "matches_option": true,\n'
+        '  "chosen_option_label": "3",\n'
+        '  "confidence": 1.0\n'
+        '}'
+    )
+
+    parsed = extract_json_from_response(llm_raw)
+    assert parsed["chosen_option_label"] == "3"
+    assert parsed["computed_value"] == "1"
+    assert parsed["matches_option"] is True
+    assert "\\sqrt{5}" in parsed["reasoning"] or "sqrt{5}" in parsed["reasoning"]
+
