@@ -1,4 +1,4 @@
-"""LLM and Vision Model Client Wrapper."""
+"""LLM and Vision Model Client Wrapper using OpenRouter."""
 
 import base64
 import json
@@ -59,35 +59,33 @@ def extract_json_from_response(content: str) -> Dict[str, Any]:
 
 
 class VisionLLMClient:
-    """Client for invoking Vision and Reasoning models via OpenAI-compatible APIs."""
+    """Client for invoking Vision and Reasoning models via OpenRouter (OpenAI-compatible)."""
 
     def __init__(
         self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        solver_model: Optional[str] = None,
-        vision_model: Optional[str] = None,
+        llm_model: Optional[str] = None,
         temperature: Optional[float] = None,
     ):
-        self.api_key = api_key or settings.OPENAI_API_KEY
-        self.base_url = base_url or settings.OPENAI_BASE_URL
-        self.solver_model = solver_model or settings.SOLVER_MODEL
-        self.vision_model = vision_model or settings.VISION_MODEL
+        self.api_key = api_key or settings.openrouter_api_key
+        self.base_url = base_url or settings.openrouter_base_url
+        self.llm_model = llm_model or settings.llm_model
         self.temperature = (
             temperature if temperature is not None else settings.TEMPERATURE
         )
 
         self._client: Optional[OpenAI] = None
         if self.api_key:
-            self._client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
 
     @property
     def client(self) -> OpenAI:
         if self._client is None:
             if self.api_key:
-                self._client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+                self._client = OpenAI(base_url=self.base_url, api_key=self.api_key)
             else:
-                raise ValueError("OPENAI_API_KEY is not configured in settings or environment.")
+                raise ValueError("OPENROUTER_API_KEY is not configured in settings or environment.")
         return self._client
 
     def chat_completion_with_image(
@@ -100,7 +98,7 @@ class VisionLLMClient:
     ) -> Dict[str, Any]:
         """Send a prompt accompanied by an image to the vision model and parse JSON output."""
         image_data_url = encode_image_to_data_url(image_path)
-        chosen_model = model or self.vision_model
+        chosen_model = model or self.llm_model
         chosen_temp = temperature if temperature is not None else self.temperature
 
         messages = [
@@ -111,13 +109,13 @@ class VisionLLMClient:
                     {"type": "text", "text": user_prompt},
                     {
                         "type": "image_url",
-                        "image_url": {"url": image_data_url, "detail": "high"},
+                        "image_url": {"url": image_data_url},
                     },
                 ],
             },
         ]
 
-        logger.debug("Calling Vision Model %s with image %s", chosen_model, image_path)
+        logger.debug("Calling Vision Model %s with image %s via OpenRouter", chosen_model, image_path)
         response = self.client.chat.completions.create(
             model=chosen_model,
             messages=messages,  # type: ignore
@@ -136,7 +134,7 @@ class VisionLLMClient:
         temperature: Optional[float] = None,
     ) -> Dict[str, Any]:
         """Send a text-only prompt and parse JSON output."""
-        chosen_model = model or self.solver_model
+        chosen_model = model or self.llm_model
         chosen_temp = temperature if temperature is not None else self.temperature
 
         messages = [
@@ -144,6 +142,7 @@ class VisionLLMClient:
             {"role": "user", "content": user_prompt},
         ]
 
+        logger.debug("Calling LLM Model %s via OpenRouter", chosen_model)
         response = self.client.chat.completions.create(
             model=chosen_model,
             messages=messages,  # type: ignore

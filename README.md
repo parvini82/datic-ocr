@@ -74,10 +74,10 @@ Key configuration options in `.env`:
 DATALAB_API_KEY=your_datalab_api_key_here
 DATALAB_API_URL=https://api.datalab.to/v1/marker
 
-# Vision LLM Provider credentials
-OPENAI_API_KEY=your_openai_api_key_here
-SOLVER_MODEL=gpt-4o
-VISION_MODEL=gpt-4o
+# OpenRouter LLM / Vision Provider credentials
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL=anthropic/claude-3.5-sonnet
 
 # Retry Policy
 MAX_RETRIES=3
